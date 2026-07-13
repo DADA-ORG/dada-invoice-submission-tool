@@ -1,0 +1,9 @@
+{
+  "name": "dada-invoice-form",
+  "version": "1.0.0",
+  "private": true,
+  "description": "DADA internal invoice submission form — Lark workplace gadget",
+  "engines": {
+    "node": ">=18"
+  }
+}

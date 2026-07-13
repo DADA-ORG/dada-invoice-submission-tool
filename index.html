@@ -1,0 +1,2101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Request for Client Invoice — DADA</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: #f5f6f8;
+      color: #1f2329;
+      min-height: 100vh;
+    }
+
+    /* ── Loading screen ─────────────────────────────────────────────── */
+    #loading-screen {
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      min-height: 100vh; gap: 16px;
+    }
+    .spinner {
+      width: 40px; height: 40px;
+      border: 3px solid #e0e4eb;
+      border-top-color: #3370ff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #login-status { font-size: 14px; color: #646a73; }
+
+    /* ── Auth error fallback ────────────────────────────────────────── */
+    #auth-error-screen {
+      display: none; flex-direction: column;
+      align-items: center; justify-content: center;
+      min-height: 100vh; gap: 16px;
+    }
+    .auth-card {
+      background: #fff; border-radius: 12px;
+      padding: 40px 32px; text-align: center;
+      max-width: 400px; width: 90%;
+      box-shadow: 0 2px 12px rgba(0,0,0,.08);
+    }
+    .auth-card h2 { font-size: 20px; margin-bottom: 8px; color: #1f2329; }
+    .auth-card p  { color: #646a73; font-size: 14px; margin-bottom: 24px; }
+    #login-error {
+      margin-top: 12px; font-size: 13px; color: #a8071a;
+      display: none;
+    }
+    .login-retry-btn {
+      margin-top: 16px; padding: 10px 32px;
+      background: #3370ff; color: #fff;
+      border: none; border-radius: 8px;
+      font-size: 14px; font-weight: 500; cursor: pointer;
+      display: none;
+    }
+    .login-retry-btn:hover { background: #245bdb; }
+
+    /* ── Main content ───────────────────────────────────────────────── */
+    #main-content { display: none; }
+
+    /* ── Page header ────────────────────────────────────────────────── */
+    .page-header {
+      background: #fff;
+      border-bottom: 1px solid #e5e6eb;
+    }
+    .page-header-top {
+      display: flex; align-items: center; gap: 16px;
+      padding: 20px 28px 16px;
+      border-bottom: 1px solid #f0f1f5;
+    }
+    .page-header-top .logo {
+      width: 120px; height: auto; flex-shrink: 0;
+      display: block; image-rendering: -webkit-optimize-contrast;
+    }
+    .page-header-divider {
+      width: 1px; height: 40px;
+      background: #e0e3ea; flex-shrink: 0;
+    }
+    .page-header-text h1 {
+      font-size: 17px; font-weight: 600;
+      color: #1f2329; line-height: 1.3;
+    }
+    .page-header-text p {
+      font-size: 12px; color: #8f959e;
+      margin-top: 4px; line-height: 1.5;
+    }
+    .user-bar {
+      display: flex; align-items: center; gap: 6px;
+      padding: 8px 28px;
+      font-size: 12px; color: #8f959e;
+    }
+    .user-bar span { flex: 1; }
+    .signout-btn {
+      font-size: 12px; color: #8f959e;
+      background: none; border: none; cursor: pointer;
+      padding: 2px 6px; border-radius: 4px;
+    }
+    .signout-btn:hover { color: #1f2329; background: #f0f1f5; }
+
+    /* ── Form body ──────────────────────────────────────────────────── */
+    .form-body {
+      max-width: 680px;
+      margin: 24px auto 80px;
+      padding: 0 16px;
+    }
+
+    /* ── Form card ──────────────────────────────────────────────────── */
+    .form-card {
+      background: #fff;
+      border-radius: 10px;
+      padding: 28px 24px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.06);
+    }
+
+    .form-title { font-size: 18px; font-weight: 600; color: #1f2329; margin-bottom: 8px; }
+    .form-desc {
+      font-size: 13px; color: #646a73; line-height: 1.6;
+      margin-bottom: 28px; padding-bottom: 20px;
+      border-bottom: 1px solid #f0f1f5;
+    }
+
+    /* ── Question block ─────────────────────────────────────────────── */
+    .question { margin-bottom: 28px; }
+    .question-label {
+      display: flex; align-items: flex-start; gap: 6px;
+      margin-bottom: 6px;
+    }
+    .q-num {
+      font-size: 13px; font-weight: 600; color: #3370ff;
+      white-space: nowrap; padding-top: 1px; min-width: 32px;
+    }
+    .q-required { color: #f54a45; font-size: 13px; margin-right: 2px; }
+    .q-text { font-size: 14px; font-weight: 500; color: #1f2329; }
+    .q-hint { font-size: 12px; color: #8f959e; margin-top: 4px; margin-left: 38px; }
+    .q-hint a { color: #3370ff; text-decoration: none; word-break: break-all; }
+    .q-hint a:hover { text-decoration: underline; }
+
+    /* ── Autocomplete suggestion dropdown ─────────────────────────────── */
+    .suggest-wrap { position: relative; }
+    .suggest-list {
+      position: absolute; left: 0; right: 0; top: 100%;
+      margin-top: 4px; background: #fff; border: 1px solid #d0d3d9; border-radius: 6px;
+      box-shadow: 0 4px 16px rgba(0,0,0,.1); max-height: 220px; overflow-y: auto;
+      z-index: 20; display: none;
+    }
+    .suggest-list.visible { display: block; }
+    .suggest-item { padding: 9px 12px; font-size: 13px; color: #1f2329; cursor: pointer; }
+    .suggest-item:hover { background: #f0f4ff; }
+    .suggest-item .suggest-sub { font-size: 11px; color: #8f959e; margin-top: 2px; }
+    .suggest-empty, .suggest-loading {
+      padding: 9px 12px; font-size: 12px; color: #8f959e;
+    }
+
+    /* ── File upload (attachment) field ───────────────────────────────── */
+    .file-input-wrap { margin-top: 8px; }
+    .file-input-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 9px 16px; border: 1.5px dashed #d0d3d9; border-radius: 6px;
+      font-size: 13px; color: #3370ff; cursor: pointer; background: #fafbff;
+    }
+    .file-input-btn:hover { border-color: #3370ff; background: #f0f4ff; }
+    .file-input-wrap input[type="file"] { display: none; }
+    .file-list { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+    .file-chip {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      padding: 7px 10px; border: 1px solid #e5e6eb; border-radius: 6px;
+      font-size: 12px; color: #1f2329; background: #fafbfc;
+    }
+    .file-chip-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .file-chip-remove {
+      border: none; background: none; color: #8f959e; cursor: pointer; font-size: 14px; flex-shrink: 0;
+    }
+    .file-chip-remove:hover { color: #f54a45; }
+
+    /* ── Inputs ─────────────────────────────────────────────────────── */
+    textarea, input[type="text"], input[type="date"], input[type="number"] {
+      width: 100%;
+      border: 1px solid #d0d3d9;
+      border-radius: 6px;
+      padding: 9px 12px;
+      font-size: 14px; color: #1f2329;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.15s;
+      background: #fff;
+      margin-top: 8px;
+    }
+    textarea { resize: vertical; min-height: 72px; line-height: 1.5; }
+    textarea:focus, input[type="text"]:focus, input[type="date"]:focus, input[type="number"]:focus {
+      border-color: #3370ff;
+      box-shadow: 0 0 0 2px rgba(51,112,255,0.1);
+    }
+    textarea::placeholder, input::placeholder { color: #bbbfc4; }
+    input[type="date"]::-webkit-calendar-picker-indicator { opacity: 0.5; cursor: pointer; }
+    input[readonly] { background: #f5f6f8; color: #646a73; cursor: not-allowed; }
+
+    /* ── Checkbox / radio group ─────────────────────────────────────── */
+    .checkbox-group, .radio-group {
+      display: flex; flex-direction: column; gap: 8px;
+      margin-top: 8px;
+    }
+    .option-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px;
+      border: 1px solid #d0d3d9;
+      border-radius: 6px; cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      user-select: none;
+    }
+    .option-item:hover { border-color: #3370ff; background: #f0f4ff; }
+    .option-item.selected { border-color: #3370ff; background: #f0f4ff; }
+    .option-item input[type="checkbox"],
+    .option-item input[type="radio"] {
+      width: 16px; height: 16px;
+      accent-color: #3370ff;
+      cursor: pointer; margin: 0; flex-shrink: 0;
+    }
+    .option-label { font-size: 14px; color: #1f2329; font-weight: 400; }
+
+    /* ── "Other" text reveal ───────────────────────────────────────── */
+    .other-text-wrap { margin-top: 8px; padding-left: 4px; display: none; }
+    .other-text-wrap.visible { display: block; }
+    .other-text-wrap input[type="text"] { margin-top: 0; }
+
+    /* ── Submit button ──────────────────────────────────────────────── */
+    .submit-wrap { margin-top: 32px; text-align: center; }
+    .submit-btn {
+      background: #3370ff; color: #fff;
+      padding: 12px 48px; border: none; border-radius: 8px;
+      font-size: 15px; font-weight: 500; cursor: pointer;
+      transition: background 0.15s, opacity 0.15s;
+      min-width: 200px;
+    }
+    .submit-btn:hover:not(:disabled) { background: #245bdb; }
+    .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    /* ── Error banner ───────────────────────────────────────────────── */
+    .form-message {
+      margin-top: 16px; padding: 10px 14px;
+      border-radius: 6px; font-size: 13px; line-height: 1.5;
+      display: none;
+    }
+    .form-message.error {
+      display: block;
+      background: #fff2f0; border: 1px solid #ffccc7; color: #a8071a;
+    }
+
+    /* ── Success screen ─────────────────────────────────────────────── */
+    #success-screen {
+      display: none; flex-direction: column;
+      align-items: center; justify-content: center;
+      min-height: 100vh; gap: 16px;
+      text-align: center; padding: 24px;
+    }
+    .success-icon { font-size: 56px; }
+    .success-title { font-size: 22px; font-weight: 600; color: #1f2329; }
+    .success-sub { font-size: 14px; color: #646a73; max-width: 320px; }
+    .new-submission-btn {
+      margin-top: 8px;
+      background: none; border: 1.5px solid #3370ff; color: #3370ff;
+      border-radius: 8px; font-size: 14px;
+      padding: 10px 32px; cursor: pointer;
+      transition: background 0.15s;
+    }
+    .new-submission-btn:hover { background: #f0f4ff; }
+
+    /* ── Validation error ───────────────────────────────────────────── */
+    .field-error { font-size: 12px; color: #f54a45; margin-top: 4px; margin-left: 4px; display: none; }
+    .field-error.visible { display: block; }
+    textarea.invalid, input.invalid { border-color: #f54a45 !important; }
+
+    /* ── Admin dashboard screen ─────────────────────────────────────── */
+    #admin-view      { display: none; }
+    #form-view       { display: none; }
+    #complete-view   { display: none; }
+    #my-records-view { display: none; }
+
+    .row-action-btn {
+      padding: 6px 14px; border-radius: 6px; border: 1.5px solid #3370ff;
+      background: #fff; color: #3370ff; font-size: 12px; font-weight: 500; cursor: pointer;
+      white-space: nowrap;
+    }
+    .row-action-btn:hover { background: #f0f4ff; }
+
+    .admin-body {
+      max-width: 960px;
+      margin: 28px auto 80px;
+      padding: 0 16px;
+    }
+
+    /* Dashboard top bar */
+    .admin-dash-header {
+      display: flex; align-items: flex-start;
+      justify-content: space-between; flex-wrap: wrap;
+      gap: 12px; margin-bottom: 20px;
+    }
+    .admin-dash-title {
+      font-size: 20px; font-weight: 700; color: #1f2329;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .admin-badge {
+      font-size: 11px; font-weight: 600;
+      background: #e8eeff; color: #3370ff;
+      border-radius: 4px; padding: 2px 8px; letter-spacing: 0.02em;
+    }
+    .admin-dash-sub {
+      font-size: 13px; color: #8f959e; margin-top: 3px;
+    }
+    .admin-actions {
+      display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+    }
+    .view-all-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 9px 16px;
+      border: 1.5px solid #3370ff; color: #3370ff;
+      background: #fff; border-radius: 8px;
+      font-size: 13px; font-weight: 500;
+      text-decoration: none; white-space: nowrap;
+      transition: background 0.15s;
+    }
+    .view-all-btn:hover { background: #f0f4ff; }
+    .submit-tob-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 9px 18px;
+      background: #3370ff; color: #fff;
+      border: none; border-radius: 8px;
+      font-size: 13px; font-weight: 500; cursor: pointer;
+      white-space: nowrap; transition: background 0.15s;
+    }
+    .submit-tob-btn:hover { background: #245bdb; }
+
+    /* Back to dashboard pill in user bar */
+    .back-dash-btn {
+      font-size: 12px; color: #3370ff;
+      background: #f0f4ff; border: none; cursor: pointer;
+      padding: 3px 10px; border-radius: 4px; font-weight: 500;
+      margin-right: 4px;
+    }
+    .back-dash-btn:hover { background: #e0eaff; }
+
+    /* Records table card */
+    .admin-table-card {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.06);
+      overflow: hidden;
+    }
+    .admin-table-card-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 20px 14px;
+      border-bottom: 1px solid #f0f1f5;
+    }
+    .admin-table-card-header h3 {
+      font-size: 14px; font-weight: 600; color: #1f2329;
+    }
+    .admin-record-count {
+      font-size: 12px; color: #8f959e;
+    }
+    .admin-records-wrap { overflow-x: auto; }
+    .admin-table {
+      width: 100%; border-collapse: collapse; font-size: 13px;
+    }
+    .admin-table th {
+      background: #f5f6f8; text-align: left;
+      padding: 9px 16px;
+      font-size: 11px; font-weight: 600; color: #646a73;
+      text-transform: uppercase; letter-spacing: 0.04em;
+      border-bottom: 1px solid #e5e6eb; white-space: nowrap;
+    }
+    .admin-table td {
+      padding: 11px 16px;
+      border-bottom: 1px solid #f0f1f5;
+      color: #1f2329; vertical-align: middle;
+      max-width: 200px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .admin-table tr:last-child td { border-bottom: none; }
+    .admin-table tbody tr:hover td { background: #fafbff; }
+    .admin-table td.muted { color: #8f959e; font-size: 12px; }
+    .admin-tag {
+      display: inline-block; font-size: 11px; font-weight: 500;
+      padding: 2px 8px; border-radius: 4px;
+      background: #f0f4ff; color: #3370ff;
+    }
+    .admin-loading {
+      text-align: center; padding: 40px 16px;
+      color: #8f959e; font-size: 13px;
+    }
+    .admin-empty {
+      text-align: center; padding: 40px 16px;
+      color: #8f959e; font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Loading screen ───────────────────────────────────────────────── -->
+<div id="loading-screen">
+  <div class="spinner"></div>
+  <p id="login-status">Verifying identity…</p>
+</div>
+
+<!-- ── Auth error fallback ──────────────────────────────────────────── -->
+<div id="auth-error-screen">
+  <div class="auth-card">
+    <h2>Client Invoice Request</h2>
+    <p>Please sign in with your Lark account to continue.</p>
+    <div id="login-error"></div>
+    <button class="login-retry-btn" id="retry-btn" onclick="startOAuth()">Sign in with Lark</button>
+  </div>
+</div>
+
+<!-- ── Authenticated shell ───────────────────────────────────────────── -->
+<div id="main-content">
+
+  <div class="page-header">
+    <div class="page-header-top">
+      <img src="/logo.jpeg" class="logo" alt="DADA Consultants"
+           onerror="this.style.display='none'" />
+      <div class="page-header-divider"></div>
+      <div class="page-header-text">
+        <h1>Client Invoice Request</h1>
+        <p>Submit after candidate has signed the offer and onboarding date is confirmed.</p>
+      </div>
+    </div>
+    <div class="user-bar">
+      <span>✓ Identity verified · <span id="user-name-label"></span></span>
+      <button class="back-dash-btn" id="back-dash-btn" style="display:none"
+              onclick="showAdminDashboard()">← Back to Admin Dashboard</button>
+      <button class="back-dash-btn" id="my-records-btn"
+              onclick="showMyRecordsView()">候选人已入职？补交证明</button>
+      <button class="signout-btn" onclick="logout()">Sign out</button>
+    </div>
+  </div>
+
+  <!-- ── Admin dashboard (admins only) ────────────────────────────────── -->
+  <div id="admin-view">
+    <div class="admin-body">
+      <div class="admin-dash-header">
+        <div>
+          <div class="admin-dash-title">
+            Invoice Submissions
+            <span class="admin-badge">Admin</span>
+          </div>
+          <p class="admin-dash-sub">Showing records from the past 7 days</p>
+        </div>
+        <div class="admin-actions">
+          <a href="https://dadaconsultants.sg.larksuite.com/base/XpJKbk59AaKjQEswC1Gl8n7Rgsd?table=tblvgZhAwo0SBrKh&view=vew9gGopfl"
+             target="_blank" rel="noopener" class="view-all-btn">
+            View All Records ↗
+          </a>
+          <button class="submit-tob-btn" onclick="showFormView()">+ Submit an Invoice Request</button>
+        </div>
+      </div>
+
+      <div class="admin-table-card">
+        <div class="admin-table-card-header">
+          <h3>Recent Submissions</h3>
+          <span class="admin-record-count" id="admin-record-count"></span>
+        </div>
+        <div class="admin-records-wrap">
+          <div class="admin-loading" id="admin-loading">Loading recent records…</div>
+          <table class="admin-table" id="admin-table" style="display:none">
+            <thead>
+              <tr>
+                <th>Submitted</th>
+                <th>Submitted by</th>
+                <th>Client</th>
+                <th>Candidate</th>
+                <th>Position</th>
+                <th>Onboarding</th>
+                <th>Entity</th>
+              </tr>
+            </thead>
+            <tbody id="admin-tbody"></tbody>
+          </table>
+          <div class="admin-empty" id="admin-empty" style="display:none">
+            No submissions in the past 7 days.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div><!-- /admin-view -->
+
+  <!-- ── Form view (regular users + admins who click Submit a TOB) ─────── -->
+  <div id="form-view">
+  <div class="form-body">
+    <div class="form-card">
+
+      <!-- Form -->
+      <div id="form-section">
+        <h1 class="form-title">Request for Client Invoice</h1>
+        <p class="form-desc">
+          Once candidate has signed an offer and there is a confirmed onboarding date, client
+          owner should submit this form with the invoice details. This will help finance team in
+          forecasting your revenue and commission. Thanks
+        </p>
+
+        <form id="invoice-form" novalidate>
+
+          <!-- Q1: Name of client to bill -->
+          <div class="question" id="q1">
+            <div class="question-label">
+              <span class="q-num"><span class="q-required">*</span>1→</span>
+              <span class="q-text">Name of client to bill</span>
+            </div>
+            <div class="suggest-wrap">
+              <textarea id="f-client-name" placeholder="Type here" rows="2"
+                oninput="clearError('q1'); onClientNameInput()"
+                onfocus="onClientNameInput()"></textarea>
+              <div class="suggest-list" id="client-suggest-list"></div>
+            </div>
+            <div class="field-error" id="err-q1">This field is required.</div>
+          </div>
+
+          <!-- Q2: Name of Candidate -->
+          <div class="question" id="q2">
+            <div class="question-label">
+              <span class="q-num"><span class="q-required">*</span>2→</span>
+              <span class="q-text">Name of Candidate</span>
+            </div>
+            <p class="q-hint">Please use the official name of candidate for accurate reference.</p>
+            <textarea id="f-candidate-name" placeholder="Type here" rows="2"
+              oninput="clearError('q2')"></textarea>
+            <div class="field-error" id="err-q2">This field is required.</div>
+          </div>
+
+          <!-- Q3: Position of Candidate -->
+          <div class="question" id="q3">
+            <div class="question-label">
+              <span class="q-num"><span class="q-required">*</span>3→</span>
+              <span class="q-text">Position of Candidate</span>
+            </div>
+            <div class="suggest-wrap">
+              <textarea id="f-position" placeholder="Type here" rows="2"
+                oninput="clearError('q3'); onPositionInput()"
+                onfocus="onPositionInput()"></textarea>
+              <div class="suggest-list" id="position-suggest-list"></div>
+            </div>
+            <div class="field-error" id="err-q3">This field is required.</div>
+          </div>
+
+          <!-- Q4: Salary Type (single select) -->
+          <div class="question" id="q4">
+            <div class="question-label">
+              <span class="q-num"><span class="q-required">*</span>4→</span>
+              <span class="q-text">Salary Type</span>
+            </div>
+            <div class="radio-group" id="salary-type-group">
+              <label class="option-item" onclick="selectRadio(this, 'salary-type-group')">
+                <input type="radio" name="salary-type" value="Monthly Salary" />
+                <span class="option-label">Monthly Salary</span>
+              </label>
+              <label class="option-item" onclick="selectRadio(this, 'salary-type-group')">
+                <input type="radio" name="salary-type" value="Annual Salary" />
+                <span class="option-label">Annual Salary</span>
+              </label>
+            </div>
+            <div class="field-error" id="err-q4">Please select an option.</div>
+          </div>
+
+          <!-- Q5: Basic Salary/ Month — shown only when Salary Type = Monthly Salary -->
+          <div class="question" id="q5" style="display:none">
+            <div class="question-label">
+              <span class="q-num"><span class="q-required">*</span>5→</span>
+              <span class="q-text">Basic Salary/ Month</span>
+            </div>
+            <input type="number" id="f-basic-salary" placeholder="Type here" step="any" min="0"
+              oninput="clearError('q5'); recomputeAnnualSalary()" />
+            <div class="field-error" id="err-q5">This field is required.</div>
+          </div>
+
+          <!-- Q6: Currency (single select) — shown for either Salary Type -->
+          <div class="question" id="q6" style="display:none">
+            <div class="question-label">
+              <span class="q-num"><span class="q-required">*</span>6→</span>
+              <span class="q-text">Currency</span>
+            </div>
+            <div class="radio-group" id="currency-group">
+              <label class="option-item" onclick="selectRadio(this, 'currency-group')">
+                <input type="radio" name="currency" value="SGD" />
+                <span class="option-label">SGD</span>
+              </label>
+              <label class="option-item" onclick="selectRadio(this, 'currency-group')">
+                <input type="radio" name="currency" value="USD" />
+                <span class="option-label">USD</span>
+              </label>
+              <label class="option-item" onclick="selectRadio(this, 'currency-group')">
+                <input type="radio" name="currency" value="CNY" />
+                <span class="option-label">CNY</span>
+              </label>
+              <label class="option-item" onclick="selectRadio(this, 'currency-group')">
+                <input type="radio" name="currency" value="HKD" />
+                <span class="option-label">HKD</span>
+              </label>
+              <label class="option-item" onclick="selectRadio(this, 'currency-group')">
+                <input type="radio" name="currency" value="MYR" />
+                <span class="option-label">MYR</span>
+              </label>
+            </div>
+            <div class="field-error" id="err-q6">Please select an option.</div>
+          </div>
+
+          <!-- Q7: Month (single select) — shown only when Salary Type = Monthly Salary -->
+          <div class="question" id="q7" style="display:none">
+            <div class="question-label">
+              <span class="q-num"><span class="q-required">*</span>7→</span>
+              <span class="q-text">Month</span>
+            </div>
+            <div class="radio-group" id="month-group">
+              <label class="option-item" onclick="selectRadio(this, 'month-group')">
+                <input type="radio" name="month" value="12" />
+                <span class="option-label">12</span>
+              </label>
+              <label class="option-item" onclick="selectRadio(this, 'month-group')">
+                <input type="radio" name="month" value="13" />
+                <span class="option-label">13</span>
+              </label>
+              <label class="option-item" onclick="selectRadio(this, 'month-group')">
+                <input type="radio" name="month" value="15" />
+                <span class="option-label">15</span>
+              </label>
+              <label class="option-item" onclick="selectRadio(this, 'month-group', 'month-other-wrap')">
+                <input type="radio" name="month" value="Other" />
+                <span class="option-label">其他（请补充）</span>
+              </label>
+            </div>
+            <div class="other-text-wrap" id="month-other-wrap">
+              <input type="number" id="f-month-other" placeholder="请填写数字…" step="1"
+                oninput="clearError('q7'); recomputeAnnualSalary()" />
+            </div>
+            <div class="field-error" id="err-q7">Please select an option.</div>
+          </div>
+
+          <!-- Q8: Annual Salary — shown for either Salary Type; auto-computed (read-only) for
+               Monthly Salary, manually entered for Annual Salary. Both write to the same Base column. -->
+          <div class="question" id="q8" style="display:none">
+            <div class="question-label">
+              <span class="q-num"><span class="q-required">*</span>8→</span>
+              <span class="q-text">Annual Salary</span>
+            </div>
+            <p class="q-hint" id="annual-salary-hint"></p>
+            <input type="number" id="f-annual-salary" placeholder="Type here" step="any" min="0"
+              oninput="clearError('q8')" />
+            <div class="field-error" id="err-q8">This field is required.</div>
+          </div>
+
+          <!-- Q9: Offer accept date -->
+          <div class="question" id="q9">
+            <div class="question-label">
+              <span class="q-num"><span class="q-required">*</span>9→</span>
+              <span class="q-text">Offer accept date of candidate</span>
+            </div>
+            <input type="date" id="f-offer-date" onchange="clearError('q9')" />
+            <div class="field-error" id="err-q9">This field is required.</div>
+          </div>
+
+          <!-- Q10: Onboarding date -->
+          <div class="question" id="q10">
+            <div class="question-label">
+              <span class="q-num"><span class="q-required">*</span>10→</span>
+              <span class="q-text">Onboarding date</span>
+            </div>
+            <input type="date" id="f-onboarding-date" onchange="clearError('q10')" />
+            <div class="field-error" id="err-q10">This field is required.</div>
+          </div>
+
+          <!-- Q11: Fee rate and calculation -->
+          <div class="question" id="q11">
+            <div class="question-label">
+              <span class="q-num"><span class="q-required">*</span>11→</span>
+              <span class="q-text">Fee rate and calculation</span>
+            </div>
+            <p class="q-hint">format eg, (SGD $10,000 basic + $1000 allowance) * 12 or 13 months * fee% = xxx</p>
+            <textarea id="f-fee-rate" placeholder="Type here" rows="2"
+              oninput="clearError('q11')"></textarea>
+            <div class="field-error" id="err-q11">This field is required.</div>
+          </div>
+
+          <!-- Q12: Any special terms (multiple select) -->
+          <div class="question" id="q12">
+            <div class="question-label">
+              <span class="q-num">12→</span>
+              <span class="q-text">Any special terms</span>
+            </div>
+            <div class="checkbox-group" id="special-terms-group">
+              <label class="option-item" onclick="toggleOption(this)">
+                <input type="checkbox" name="special-terms" value="Exclude GST" />
+                <span class="option-label">Exclude GST</span>
+              </label>
+              <label class="option-item" onclick="toggleOption(this)">
+                <input type="checkbox" name="special-terms" value="Pay in US Dollar" />
+                <span class="option-label">Pay in US Dollar</span>
+              </label>
+              <label class="option-item" onclick="toggleOption(this)">
+                <input type="checkbox" name="special-terms" value="Pay in USDT to crypto wallet" />
+                <span class="option-label">Pay in USDT to crypto wallet</span>
+              </label>
+              <label class="option-item" onclick="toggleOption(this, 'special-terms-other-wrap')">
+                <input type="checkbox" name="special-terms" value="Other" id="special-terms-other-cb" />
+                <span class="option-label">Other</span>
+              </label>
+            </div>
+            <div class="other-text-wrap" id="special-terms-other-wrap">
+              <input type="text" id="f-special-terms-other" placeholder="Please specify…" />
+            </div>
+          </div>
+
+          <!-- Q13: Entity signed contract -->
+          <div class="question" id="q13">
+            <div class="question-label">
+              <span class="q-num"><span class="q-required">*</span>13→</span>
+              <span class="q-text">Which is the entity signed the contract with client?</span>
+            </div>
+            <div class="radio-group" id="entity-group">
+              <label class="option-item" onclick="selectRadio(this, 'entity-group')">
+                <input type="radio" name="entity" value="DADA SG" />
+                <span class="option-label">DADA SG</span>
+              </label>
+              <label class="option-item" onclick="selectRadio(this, 'entity-group')">
+                <input type="radio" name="entity" value="DDC MY" />
+                <span class="option-label">DDC MY</span>
+              </label>
+              <label class="option-item" onclick="selectRadio(this, 'entity-group')">
+                <input type="radio" name="entity" value="DDC US" />
+                <span class="option-label">DDC US</span>
+              </label>
+              <label class="option-item" onclick="selectRadio(this, 'entity-group', 'entity-other-wrap')">
+                <input type="radio" name="entity" value="Other" />
+                <span class="option-label">Other</span>
+              </label>
+            </div>
+            <div class="other-text-wrap" id="entity-other-wrap">
+              <input type="text" id="f-entity-other" placeholder="Please specify…" />
+            </div>
+            <div class="field-error" id="err-q13">Please select an option.</div>
+          </div>
+
+          <!-- Q14: ID Type (shown only when entity = DADA SG) -->
+          <div class="question" id="q14" style="display:none">
+            <div class="question-label">
+              <span class="q-num"><span class="q-required">*</span>14→</span>
+              <span class="q-text">ID Type</span>
+            </div>
+            <div class="radio-group" id="idtype-group">
+              <label class="option-item" onclick="selectRadio(this, 'idtype-group')">
+                <input type="radio" name="idtype" value="NRIC" />
+                <span class="option-label">NRIC</span>
+              </label>
+              <label class="option-item" onclick="selectRadio(this, 'idtype-group')">
+                <input type="radio" name="idtype" value="FIN" />
+                <span class="option-label">FIN</span>
+              </label>
+              <label class="option-item" onclick="selectRadio(this, 'idtype-group')">
+                <input type="radio" name="idtype" value="Passport" />
+                <span class="option-label">Passport</span>
+              </label>
+            </div>
+            <div class="field-error" id="err-q14">Please select an option.</div>
+          </div>
+
+          <!-- Q15: ID Number of candidate referred (shown only when entity = DADA SG) -->
+          <div class="question" id="q15" style="display:none">
+            <div class="question-label">
+              <span class="q-num"><span class="q-required">*</span>15→</span>
+              <span class="q-text">ID Number of candidate referred</span>
+            </div>
+            <p class="q-hint">If candidate is relocation case and oversea case, pls provide passport number; if candidate is EP holder, pls provide Fin Number; If candidate is PR/SC, pls provide NRIC.</p>
+            <input type="text" id="f-id-number" placeholder="Type here"
+              oninput="clearError('q15')" />
+            <div class="field-error" id="err-q15">This field is required.</div>
+          </div>
+
+          <!-- Q16: Occupation of position referred to (SSOC 2015 5-digit code) — shown only when entity = DADA SG; auto-filled from Q3 -->
+          <div class="question" id="q16" style="display:none">
+            <div class="question-label">
+              <span class="q-num"><span class="q-required">*</span>16→</span>
+              <span class="q-text">Occupation of position referred to(SSOC 2015 5-digit code)</span>
+            </div>
+            <p class="q-hint">Pls refer to SSOC List if needed: <a href="https://dadaconsultants.sg.larksuite.com/base/Ag3Obd63CahRZgstJRZlRlLKgFd?table=tbl7atMIu4hFqFCQ&view=vewAYZPsii" target="_blank" rel="noopener">https://dadaconsultants.sg.larksuite.com/base/Ag3Obd63CahRZgstJRZlRlLKgFd?table=tbl7atMIu4hFqFCQ&view=vewAYZPsii</a></p>
+            <input type="text" id="f-ssoc-code" placeholder="Type here"
+              oninput="clearError('q16')" />
+            <div class="field-error" id="err-q16">This field is required.</div>
+          </div>
+
+          <!-- Q17: UEN of Company Referred to — shown only when entity = DADA SG; auto-filled from Q1 -->
+          <div class="question" id="q17" style="display:none">
+            <div class="question-label">
+              <span class="q-num"><span class="q-required">*</span>17→</span>
+              <span class="q-text">UEN of Company Referred to</span>
+            </div>
+            <p class="q-hint">Pls refer to Client UEN List if needed: <a href="https://dadaconsultants.sg.larksuite.com/base/Ag3Obd63CahRZgstJRZlRlLKgFd?table=tbl67bFoqCNW8rol&view=vewQzop8z7" target="_blank" rel="noopener">https://dadaconsultants.sg.larksuite.com/base/Ag3Obd63CahRZgstJRZlRlLKgFd?table=tbl67bFoqCNW8rol&view=vewQzop8z7</a></p>
+            <input type="text" id="f-company-uen" placeholder="Type here"
+              oninput="clearError('q17')" />
+            <div class="field-error" id="err-q17">This field is required.</div>
+          </div>
+
+          <!-- Q18: GST: Client entity & Candidate status (shown only when entity = DADA SG) -->
+          <div class="question" id="q18" style="display:none">
+            <div class="question-label">
+              <span class="q-num"><span class="q-required">*</span>18→</span>
+              <span class="q-text">GST: Client entity &amp; Candidate status</span>
+            </div>
+            <div class="checkbox-group" id="gst-status-group">
+              <label class="option-item" onclick="toggleOption(this)">
+                <input type="checkbox" name="gst-status" value="Candidate will work outside SG after onboarding. 候选人在新加坡境外工作。" />
+                <span class="option-label">Candidate will work outside SG after onboarding. 候选人在新加坡境外工作。</span>
+              </label>
+              <label class="option-item" onclick="toggleOption(this)">
+                <input type="checkbox" name="gst-status" value="The entity candidate will onboard is outside SG. 候选人在新加坡境外主体入职。" />
+                <span class="option-label">The entity candidate will onboard is outside SG. 候选人在新加坡境外主体入职。</span>
+              </label>
+              <label class="option-item" onclick="toggleOption(this)">
+                <input type="checkbox" name="gst-status" value="None of the above" />
+                <span class="option-label">None of the above</span>
+              </label>
+            </div>
+            <div class="field-error" id="err-q18">Please select at least one option.</div>
+          </div>
+
+          <!-- Q19: Payment term (single select) -->
+          <div class="question" id="q19">
+            <div class="question-label">
+              <span class="q-num"><span class="q-required">*</span>19→</span>
+              <span class="q-text">What is the payment term</span>
+            </div>
+            <div class="radio-group" id="payment-group">
+              <label class="option-item" onclick="selectRadio(this, 'payment-group')">
+                <input type="radio" name="payment" value="Pay 100% within 30 days" />
+                <span class="option-label">Pay 100% within 30 days</span>
+              </label>
+              <label class="option-item" onclick="selectRadio(this, 'payment-group')">
+                <input type="radio" name="payment" value="pay 100% within 45 days" />
+                <span class="option-label">pay 100% within 45 days</span>
+              </label>
+              <label class="option-item" onclick="selectRadio(this, 'payment-group')">
+                <input type="radio" name="payment" value="Pay 100% within 60 days" />
+                <span class="option-label">Pay 100% within 60 days</span>
+              </label>
+              <label class="option-item" onclick="selectRadio(this, 'payment-group')">
+                <input type="radio" name="payment" value="Pay 100% within 90 days" />
+                <span class="option-label">Pay 100% within 90 days</span>
+              </label>
+              <label class="option-item" onclick="selectRadio(this, 'payment-group')">
+                <input type="radio" name="payment" value="Pay 50% in 30 days, 50% after 3 months" />
+                <span class="option-label">Pay 50% in 30 days, 50% after 3 months</span>
+              </label>
+              <label class="option-item" onclick="selectRadio(this, 'payment-group')">
+                <input type="radio" name="payment" value="Pay 50% in 30 days, 50% after 6 months" />
+                <span class="option-label">Pay 50% in 30 days, 50% after 6 months</span>
+              </label>
+              <label class="option-item" onclick="selectRadio(this, 'payment-group', 'payment-other-wrap')">
+                <input type="radio" name="payment" value="Other" />
+                <span class="option-label">Other</span>
+              </label>
+            </div>
+            <div class="other-text-wrap" id="payment-other-wrap">
+              <input type="text" id="f-payment-other" placeholder="Please specify…" />
+            </div>
+            <div class="field-error" id="err-q19">Please select an option.</div>
+          </div>
+
+          <!-- Q20: Any special terms or additional remarks? (optional) -->
+          <div class="question" id="q20">
+            <div class="question-label">
+              <span class="q-num">20→</span>
+              <span class="q-text">Any special terms or additional remarks?</span>
+            </div>
+            <textarea id="f-remarks" placeholder="Type here" rows="3"></textarea>
+          </div>
+
+          <!-- Q21: AM / client owner -->
+          <div class="question" id="q21">
+            <div class="question-label">
+              <span class="q-num"><span class="q-required">*</span>21→</span>
+              <span class="q-text">Who is the AM (client owner) and what is the revenue split percentage?</span>
+            </div>
+            <textarea id="f-am-owner" placeholder="Type here" rows="2"
+              oninput="clearError('q21')"></textarea>
+            <div class="field-error" id="err-q21">This field is required.</div>
+          </div>
+
+          <!-- Q22: Recruiter / consultant owner -->
+          <div class="question" id="q22">
+            <div class="question-label">
+              <span class="q-num"><span class="q-required">*</span>22→</span>
+              <span class="q-text">Who is the Recruiter (consultant owner) and what is the revenue split percentage?</span>
+            </div>
+            <textarea id="f-recruiter" placeholder="Type here" rows="2"
+              oninput="clearError('q22')"></textarea>
+            <div class="field-error" id="err-q22">This field is required.</div>
+          </div>
+
+          <!-- Q23: Sourcer -->
+          <div class="question" id="q23">
+            <div class="question-label">
+              <span class="q-num"><span class="q-required">*</span>23→</span>
+              <span class="q-text">Who is the Sourcer and revenue split percentage?</span>
+            </div>
+            <textarea id="f-sourcer" placeholder="Type here" rows="2"
+              oninput="clearError('q23')"></textarea>
+            <div class="field-error" id="err-q23">This field is required.</div>
+          </div>
+
+          <!-- Submit -->
+          <div class="submit-wrap">
+            <button type="submit" class="submit-btn" id="submit-btn">Submit</button>
+            <div class="form-message" id="form-msg"></div>
+          </div>
+
+        </form>
+      </div><!-- /form-section -->
+
+
+    </div><!-- /form-card -->
+  </div><!-- /form-body -->
+  </div><!-- /form-view -->
+
+  <!-- ── Complete view (candidate-onboarded follow-up, opened by picking a record from "候选人已入职？补交证明") ── -->
+  <div id="complete-view">
+  <div class="form-body">
+    <div class="form-card">
+      <button type="button" class="back-dash-btn" style="margin-bottom:14px;" onclick="showMyRecordsView()">← Back to list</button>
+      <h1 class="form-title">Complete Onboarding Proof</h1>
+      <p class="form-desc">
+        Now that the candidate has onboarded, please confirm the evidence source and
+        upload proof of onboarding for the invoice request below.
+      </p>
+
+      <div id="complete-record-info" style="margin-bottom:24px; padding:14px 16px; background:#f5f6f8; border-radius:8px; font-size:13px; color:#1f2329; line-height:1.8;">
+        Loading record details…
+      </div>
+
+      <div id="complete-record-error" style="display:none; margin-bottom:20px; padding:12px 14px; background:#fff2f0; border:1px solid #ffccc7; border-radius:6px; color:#a8071a; font-size:13px;"></div>
+
+      <form id="complete-form" novalidate>
+
+        <!-- Evidence source confirming this onboarding (multi-select) -->
+        <div class="question" id="cq1">
+          <div class="question-label">
+            <span class="q-num"><span class="q-required">*</span>1→</span>
+            <span class="q-text">本次入职确认的证据来源（可多选）</span>
+          </div>
+          <div class="checkbox-group" id="onboarding-evidence-group">
+            <label class="option-item" onclick="toggleOption(this)">
+              <input type="checkbox" name="onboarding-evidence" value="Offer Letter" />
+              <span class="option-label">Offer Letter</span>
+            </label>
+            <label class="option-item" onclick="toggleOption(this)">
+              <input type="checkbox" name="onboarding-evidence" value="Employment Contract" />
+              <span class="option-label">Employment Contract</span>
+            </label>
+            <label class="option-item" onclick="toggleOption(this)">
+              <input type="checkbox" name="onboarding-evidence" value="客户HR确认（邮件）" />
+              <span class="option-label">客户HR确认（邮件）</span>
+            </label>
+            <label class="option-item" onclick="toggleOption(this)">
+              <input type="checkbox" name="onboarding-evidence" value="客户HR聊天截图（WhatsApp / 微信 / Lark 等）" />
+              <span class="option-label">客户HR聊天截图（WhatsApp / 微信 / Lark 等）</span>
+            </label>
+            <label class="option-item" onclick="toggleOption(this)">
+              <input type="checkbox" name="onboarding-evidence" value="候选人聊天确认" />
+              <span class="option-label">候选人聊天确认</span>
+            </label>
+            <label class="option-item" onclick="toggleOption(this)">
+              <input type="checkbox" name="onboarding-evidence" value="客户Hiring Manager确认" />
+              <span class="option-label">客户Hiring Manager确认</span>
+            </label>
+            <label class="option-item" onclick="toggleOption(this, 'onboarding-evidence-other-wrap')">
+              <input type="checkbox" name="onboarding-evidence" value="其他（请说明）" />
+              <span class="option-label">其他（请说明）</span>
+            </label>
+          </div>
+          <div class="other-text-wrap" id="onboarding-evidence-other-wrap">
+            <input type="text" id="f-onboarding-evidence-other" placeholder="请说明…" />
+          </div>
+          <div class="field-error" id="err-cq1">Please select at least one option.</div>
+        </div>
+
+        <!-- Upload proof of onboarding (attachment, at least 1 file) -->
+        <div class="question" id="cq2">
+          <div class="question-label">
+            <span class="q-num"><span class="q-required">*</span>2→</span>
+            <span class="q-text">请上传入职证明</span>
+          </div>
+          <div class="q-hint">
+            请上传能够证明候选人已正式入职的材料，例如：
+            <ul style="margin:4px 0 0 18px; padding:0;">
+              <li>Offer Letter</li>
+              <li>Employment Contract</li>
+              <li>HR邮件</li>
+              <li>HR聊天截图</li>
+              <li>候选人聊天截图</li>
+              <li>入职通知</li>
+              <li>其他相关证明</li>
+            </ul>
+          </div>
+          <div class="file-input-wrap">
+            <label class="file-input-btn">
+              📎 Choose file(s)
+              <input type="file" id="f-onboarding-proof" multiple onchange="onProofFilesChange(this)" />
+            </label>
+            <div class="file-list" id="proof-file-list"></div>
+          </div>
+          <div class="field-error" id="err-cq2">Please upload at least one file.</div>
+        </div>
+
+        <div class="submit-wrap">
+          <button type="submit" class="submit-btn" id="complete-submit-btn">Submit</button>
+          <div class="form-message" id="complete-msg"></div>
+        </div>
+
+      </form>
+    </div><!-- /form-card -->
+  </div><!-- /form-body -->
+  </div><!-- /complete-view -->
+
+  <!-- ── My records view (find your own submissions pending onboarding proof) ── -->
+  <div id="my-records-view">
+    <div class="admin-body">
+      <div class="admin-dash-header">
+        <div>
+          <div class="admin-dash-title">候选人已入职？补交证明</div>
+          <p class="admin-dash-sub">下面是您提交过、还没有补交「入职证据来源」和「入职证明」的记录，点选其中一条继续。</p>
+        </div>
+        <div class="admin-actions">
+          <button type="button" class="view-all-btn" onclick="returnFromMyRecordsView()">← Back</button>
+        </div>
+      </div>
+
+      <div class="admin-table-card">
+        <div class="admin-table-card-header">
+          <h3>Pending Onboarding Proof</h3>
+          <span class="admin-record-count" id="my-records-count"></span>
+        </div>
+        <div class="admin-records-wrap">
+          <div class="admin-loading" id="my-records-loading">Loading your submissions…</div>
+          <table class="admin-table" id="my-records-table" style="display:none">
+            <thead>
+              <tr>
+                <th>Client</th>
+                <th>Candidate</th>
+                <th>Position</th>
+                <th>Onboarding</th>
+                <th>Submitted</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="my-records-tbody"></tbody>
+          </table>
+          <div class="admin-empty" id="my-records-empty" style="display:none">
+            没有找到需要补交的记录 —— 说明您名下的记录都已经补交完成，或者您还没有提交过Invoice Request。
+          </div>
+        </div>
+      </div>
+    </div>
+  </div><!-- /my-records-view -->
+
+</div><!-- /main-content -->
+
+<!-- ── Success screen ───────────────────────────────────────────────── -->
+<div id="success-screen">
+  <div class="success-icon">✅</div>
+  <div class="success-title" id="success-title">Submitted successfully!</div>
+  <div class="success-sub" id="success-sub">Your invoice request has been submitted. The finance team will be notified shortly.</div>
+  <button class="new-submission-btn" id="success-action-btn" onclick="dismissSuccessScreen()">Submit another</button>
+</div>
+
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// CONFIG — fetched from /api/config (which reads LARK_APP_ID env var)
+// ═══════════════════════════════════════════════════════════════
+let LARK_APP_ID = '';
+
+// ── Session persistence (7-day localStorage cache) ───────────────────────
+const CACHE_KEY = 'app_session_v1';               // bump to v2 to force re-auth on deploy
+const CACHE_TTL = 7 * 24 * 60 * 60 * 1000;       // 7 days in ms
+
+function getSession() {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    const s = JSON.parse(raw);
+    if (Date.now() - (s.cachedAt || 0) > CACHE_TTL) {
+      localStorage.removeItem(CACHE_KEY);
+      return null;
+    }
+    return s;
+  } catch { return null; }
+}
+function saveSession(data) {
+  localStorage.setItem(CACHE_KEY, JSON.stringify({
+    open_id: data.open_id,
+    name:    data.name    || '',
+    avatar:  data.avatar_url || '',
+    uat:     data.user_access_token || '',
+    cachedAt: Date.now(),
+  }));
+}
+function clearSession() {
+  localStorage.removeItem(CACHE_KEY);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// OAUTH FLOW
+// ═══════════════════════════════════════════════════════════════
+function setLoginStatus(msg) {
+  document.getElementById('login-status').textContent = msg;
+}
+function showLoginError(msg) {
+  document.getElementById('loading-screen').style.display = 'none';
+  document.getElementById('auth-error-screen').style.display = 'flex';
+  const el = document.getElementById('login-error');
+  el.textContent = msg;
+  el.style.display = 'block';
+  document.getElementById('retry-btn').style.display = 'inline-block';
+}
+
+function startOAuth() {
+  document.getElementById('login-error').style.display = 'none';
+  document.getElementById('retry-btn').style.display = 'none';
+  document.querySelector('.spinner').style.display = 'block';
+  setLoginStatus('Redirecting to Lark login…');
+  const redirectUri = encodeURIComponent(window.location.origin + window.location.pathname);
+  window.location.href =
+    `https://open.larksuite.com/open-apis/authen/v1/index?app_id=${LARK_APP_ID}&redirect_uri=${redirectUri}&response_type=code`;
+}
+
+async function init() {
+  // 1. Load config
+  try {
+    const cfg = await fetch('/api/config').then(r => r.json());
+    LARK_APP_ID = cfg.app_id;
+  } catch (e) {
+    showLoginError('Failed to load app config. Please contact your administrator.');
+    return;
+  }
+  if (!LARK_APP_ID) {
+    showLoginError('App ID not configured. Please contact your administrator.');
+    return;
+  }
+
+  // 2. Check for OAuth callback code
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get('code');
+
+  if (code) {
+    // Clean code from URL bar
+    params.delete('code');
+    const clean = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+    window.history.replaceState({}, '', clean);
+
+    setLoginStatus('Verifying your identity…');
+    try {
+      const res = await fetch('/api/auth-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.open_id) {
+        showLoginError('Authentication failed: ' + (data.error || 'Unknown error') + (data.data_keys ? ' | keys=' + data.data_keys.join(',') : ''));
+        return;
+      }
+      // Cache identity (7-day localStorage)
+      saveSession(data);
+      showApp(data.name);
+    } catch (e) {
+      showLoginError('Network error during authentication. Please try again.');
+    }
+    return;
+  }
+
+  // 3. Check localStorage cache (7-day TTL)
+  const session = getSession();
+  if (session && session.open_id && session.uat) {
+    showApp(session.name || '');
+    return;
+  }
+  // Cache missing or expired — clear and re-auth
+  clearSession();
+
+  // 4. No code, no cache → start OAuth
+  startOAuth();
+}
+
+let _isAdmin = false;
+
+async function showApp(name) {
+  document.getElementById('loading-screen').style.display = 'none';
+  document.getElementById('auth-error-screen').style.display = 'none';
+  document.getElementById('main-content').style.display = 'block';
+  document.getElementById('user-name-label').textContent = name || 'Employee';
+
+  // ── Admin check — route to correct landing screen ────────────────────
+  const openId = getSession()?.open_id;
+  if (openId) {
+    try {
+      const res  = await fetch('/api/check-admin', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ open_id: openId }),
+      });
+      const data = await res.json();
+      if (data.is_admin) {
+        _isAdmin = true;
+        showAdminDashboard();
+        return;
+      }
+    } catch (e) {
+      console.warn('[admin-check] failed:', e);
+    }
+  }
+  // Regular user → go straight to form
+  showFormView();
+}
+
+// ── Screen navigation ────────────────────────────────────────────────────
+function showAdminDashboard() {
+  document.getElementById('admin-view').style.display = 'block';
+  document.getElementById('form-view').style.display  = 'none';
+  document.getElementById('complete-view').style.display = 'none';
+  document.getElementById('my-records-view').style.display = 'none';
+  document.getElementById('back-dash-btn').style.display = 'none';
+  loadRecentRecords();
+}
+
+function showFormView() {
+  document.getElementById('form-view').style.display  = 'block';
+  document.getElementById('admin-view').style.display = 'none';
+  document.getElementById('complete-view').style.display = 'none';
+  document.getElementById('my-records-view').style.display = 'none';
+  if (_isAdmin) {
+    document.getElementById('back-dash-btn').style.display = 'inline-block';
+  }
+}
+
+// ── My records view: user's own submissions still pending Q21/Q22 ────────
+async function showMyRecordsView() {
+  document.getElementById('my-records-view').style.display = 'block';
+  document.getElementById('form-view').style.display       = 'none';
+  document.getElementById('admin-view').style.display      = 'none';
+  document.getElementById('complete-view').style.display   = 'none';
+
+  const loadingEl = document.getElementById('my-records-loading');
+  const tableEl   = document.getElementById('my-records-table');
+  const emptyEl   = document.getElementById('my-records-empty');
+  const countEl   = document.getElementById('my-records-count');
+  const tbody     = document.getElementById('my-records-tbody');
+
+  loadingEl.style.display = 'block';
+  tableEl.style.display   = 'none';
+  emptyEl.style.display   = 'none';
+  tbody.innerHTML = '';
+
+  const openId = getSession()?.open_id || '';
+  try {
+    const res  = await fetch('/api/my-pending-records', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ open_id: openId }),
+    });
+    const data = await res.json();
+    const records = data.records || [];
+
+    loadingEl.style.display = 'none';
+    countEl.textContent = records.length
+      ? `${records.length} record${records.length !== 1 ? 's' : ''} pending`
+      : '';
+
+    if (!records.length) {
+      emptyEl.style.display = 'block';
+      return;
+    }
+
+    records.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td title="${esc(r.client)}">${esc(r.client)}</td>
+        <td title="${esc(r.candidate)}">${esc(r.candidate)}</td>
+        <td title="${esc(r.position)}">${esc(r.position)}</td>
+        <td>${esc(r.onboarding)}</td>
+        <td class="muted">${esc(r.submitted)}</td>
+        <td><button type="button" class="row-action-btn">Complete →</button></td>
+      `;
+      tr.querySelector('.row-action-btn').addEventListener('click', () => showCompleteView(r.record_id));
+      tbody.appendChild(tr);
+    });
+    tableEl.style.display = 'table';
+  } catch (e) {
+    console.error('[my-pending-records] failed:', e);
+    loadingEl.style.display = 'none';
+    emptyEl.textContent = '加载失败，请刷新页面重试。';
+    emptyEl.style.display = 'block';
+  }
+}
+
+function returnFromMyRecordsView() {
+  if (_isAdmin) {
+    showAdminDashboard();
+  } else {
+    showFormView();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// COMPLETE VIEW — second, candidate-onboarded follow-up submission
+// (opened by picking a record out of the user's own pending list — see
+// showMyRecordsView() / my-pending-records.js)
+// ═══════════════════════════════════════════════════════════════
+let _completingRecordId = null;
+
+// Clears the complete-form's inputs so switching between records in the
+// pending list never carries over stale checkboxes/text/files from a
+// previously-completed record.
+function resetCompleteForm() {
+  document.getElementById('complete-form').reset();
+  document.querySelectorAll('#complete-view .option-item').forEach(el => el.classList.remove('selected'));
+  document.getElementById('onboarding-evidence-other-wrap').classList.remove('visible');
+  document.querySelectorAll('#complete-view .field-error').forEach(el => el.classList.remove('visible'));
+  selectedProofFiles = [];
+  renderProofFileList();
+  const submitBtn = document.getElementById('complete-submit-btn');
+  submitBtn.disabled = false;
+  submitBtn.textContent = 'Submit';
+  document.getElementById('complete-msg').style.display = 'none';
+}
+
+async function showCompleteView(recordId) {
+  _completingRecordId = recordId;
+  resetCompleteForm();
+  document.getElementById('complete-view').style.display = 'block';
+  document.getElementById('form-view').style.display     = 'none';
+  document.getElementById('admin-view').style.display    = 'none';
+  document.getElementById('my-records-view').style.display = 'none';
+  document.getElementById('back-dash-btn').style.display = 'none';
+
+  const infoEl  = document.getElementById('complete-record-info');
+  const errEl   = document.getElementById('complete-record-error');
+  const submitBtn = document.getElementById('complete-submit-btn');
+  errEl.style.display = 'none';
+  infoEl.textContent = 'Loading record details…';
+
+  try {
+    const res  = await fetch('/api/get-record?record_id=' + encodeURIComponent(recordId));
+    const data = await res.json();
+
+    if (!res.ok || !data.record) {
+      infoEl.textContent = '';
+      errEl.textContent = data.error ||
+        'Could not find this invoice request. It may have been deleted — please go back and refresh the list.';
+      errEl.style.display = 'block';
+      submitBtn.disabled = true;
+      return;
+    }
+
+    const r = data.record;
+    infoEl.innerHTML = `
+      <div><strong>Client:</strong> ${esc(r.client)}</div>
+      <div><strong>Candidate:</strong> ${esc(r.candidate)}</div>
+      <div><strong>Position:</strong> ${esc(r.position)}</div>
+      <div><strong>Onboarding date:</strong> ${esc(r.onboarding)}</div>
+    `;
+    submitBtn.disabled = false;
+  } catch (e) {
+    console.error('[get-record] failed:', e);
+    infoEl.textContent = '';
+    errEl.textContent = 'Network error while loading this record. Please refresh and try again.';
+    errEl.style.display = 'block';
+    submitBtn.disabled = true;
+  }
+}
+
+document.getElementById('complete-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const recordId = _completingRecordId;
+  if (!recordId) {
+    document.getElementById('complete-msg').textContent =
+      '⚠ Could not find which record to update — please go back and pick it from the list again.';
+    document.getElementById('complete-msg').className = 'form-message error';
+    return;
+  }
+
+  let valid = true;
+  if (!document.querySelector('input[name="onboarding-evidence"]:checked')) { showError('cq1'); valid = false; }
+  if (!selectedProofFiles.length) { showError('cq2'); valid = false; }
+  if (!valid) {
+    const firstErr = document.querySelector('#complete-view .field-error.visible');
+    if (firstErr) firstErr.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
+
+  const btn   = document.getElementById('complete-submit-btn');
+  const msgEl = document.getElementById('complete-msg');
+  btn.disabled = true;
+  btn.textContent = 'Submitting…';
+  msgEl.className = 'form-message';
+  msgEl.style.display = 'none';
+
+  try {
+    const onboardingEvidence = Array.from(
+      document.querySelectorAll('input[name="onboarding-evidence"]:checked')
+    ).map(cb => cb.value);
+
+    const updateFields = {
+      '本次入职确认的证据来源（可多选）': onboardingEvidence,
+    };
+
+    const evidenceOther = document.getElementById('f-onboarding-evidence-other').value.trim();
+    if (evidenceOther) updateFields['本次入职确认的证据来源（其他）'] = evidenceOther;
+
+    btn.textContent = 'Uploading files…';
+    updateFields['请上传入职证明'] = await uploadProofFiles();
+
+    btn.textContent = 'Submitting…';
+    const res = await fetch('/api/update-record', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        record_id: recordId,
+        fields: updateFields,
+      }),
+    });
+    const data = await res.json();
+
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || 'Submission failed. Please try again.');
+    }
+
+    _completingRecordId = null;
+    showSuccessScreen({ mode: 'complete-proof' });
+  } catch (err) {
+    msgEl.textContent = '⚠ ' + err.message;
+    msgEl.className = 'form-message error';
+    btn.disabled = false;
+    btn.textContent = 'Submit';
+    msgEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════
+// ADMIN — recent records
+// ═══════════════════════════════════════════════════════════════
+async function loadRecentRecords() {
+  try {
+    const res  = await fetch('/api/recent-records', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({}),
+    });
+    const data = await res.json();
+    renderAdminTable(data.records || []);
+  } catch (e) {
+    console.error('[recent-records] failed:', e);
+    renderAdminTable([]);
+  }
+}
+
+function renderAdminTable(records) {
+  document.getElementById('admin-loading').style.display = 'none';
+
+  const countEl = document.getElementById('admin-record-count');
+  if (countEl) countEl.textContent = records.length
+    ? `${records.length} submission${records.length !== 1 ? 's' : ''} this week`
+    : '';
+
+  if (!records.length) {
+    document.getElementById('admin-empty').style.display = 'block';
+    return;
+  }
+
+  const tbody = document.getElementById('admin-tbody');
+  tbody.innerHTML = '';
+
+  for (const r of records) {
+    const date = r.submitted_at
+      ? new Date(r.submitted_at).toLocaleString('en-GB', {
+          day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
+        })
+      : '—';
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="muted">${esc(date)}</td>
+      <td>${esc(r.submitter)}</td>
+      <td title="${esc(r.client)}">${esc(r.client)}</td>
+      <td title="${esc(r.candidate)}">${esc(r.candidate)}</td>
+      <td title="${esc(r.position)}">${esc(r.position)}</td>
+      <td>${esc(r.onboarding)}</td>
+      <td><span class="admin-tag">${esc(r.entity)}</span></td>
+    `;
+    tbody.appendChild(tr);
+  }
+
+  document.getElementById('admin-table').style.display = 'table';
+}
+
+function esc(str) {
+  return String(str ?? '—')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function logout() {
+  clearSession();
+  window.location.reload();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Q22 — Proof of onboarding attachment(s)
+// ═══════════════════════════════════════════════════════════════
+let selectedProofFiles = [];
+
+function onProofFilesChange(input) {
+  selectedProofFiles = Array.from(input.files || []);
+  renderProofFileList();
+  clearError('cq2');
+}
+
+function removeProofFile(idx) {
+  selectedProofFiles.splice(idx, 1);
+  renderProofFileList();
+}
+
+function renderProofFileList() {
+  const wrap = document.getElementById('proof-file-list');
+  wrap.innerHTML = '';
+  selectedProofFiles.forEach((file, idx) => {
+    const chip = document.createElement('div');
+    chip.className = 'file-chip';
+    chip.innerHTML = `
+      <span class="file-chip-name" title="${esc(file.name)}">${esc(file.name)}</span>
+      <button type="button" class="file-chip-remove" aria-label="Remove">✕</button>
+    `;
+    chip.querySelector('.file-chip-remove').addEventListener('click', () => removeProofFile(idx));
+    wrap.appendChild(chip);
+  });
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      // reader.result looks like "data:<mime>;base64,AAAA..." — strip the prefix
+      const result = reader.result || '';
+      const idx = result.indexOf(',');
+      resolve(idx >= 0 ? result.slice(idx + 1) : result);
+    };
+    reader.onerror = () => reject(reader.error || new Error('Failed to read file'));
+    reader.readAsDataURL(file);
+  });
+}
+
+// Uploads all currently-selected proof files to Lark Drive, returning an
+// array of { file_token } objects ready to write into the attachment field.
+async function uploadProofFiles() {
+  const results = [];
+  for (const file of selectedProofFiles) {
+    const data_base64 = await fileToBase64(file);
+    const res = await fetch('/api/upload-attachment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ file_name: file.name, mime_type: file.type, data_base64 }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success || !data.file_token) {
+      throw new Error(data.error || `Failed to upload "${file.name}"`);
+    }
+    results.push({ file_token: data.file_token });
+  }
+  return results;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// OPTION HELPERS
+// ═══════════════════════════════════════════════════════════════
+function toggleOption(label, otherWrapId) {
+  const cb = label.querySelector('input[type="checkbox"]');
+  // The click already toggles the checkbox (browser default); we just update styling
+  setTimeout(() => {
+    label.classList.toggle('selected', cb.checked);
+    if (otherWrapId) {
+      const wrap = document.getElementById(otherWrapId);
+      wrap.classList.toggle('visible', cb.checked);
+      if (!cb.checked) {
+        const input = wrap.querySelector('input[type="text"]');
+        if (input) input.value = '';
+      }
+    }
+  }, 0);
+}
+
+function selectRadio(label, groupId, otherWrapId) {
+  // Deselect all in group
+  document.querySelectorAll(`#${groupId} .option-item`).forEach(el => el.classList.remove('selected'));
+  // Hide all other-text wraps in this group (find by data or convention)
+  if (groupId === 'entity-group') {
+    document.getElementById('entity-other-wrap').classList.remove('visible');
+    document.getElementById('f-entity-other').value = '';
+  }
+  if (groupId === 'payment-group') {
+    document.getElementById('payment-other-wrap').classList.remove('visible');
+    document.getElementById('f-payment-other').value = '';
+  }
+  if (groupId === 'month-group') {
+    document.getElementById('month-other-wrap').classList.remove('visible');
+    document.getElementById('f-month-other').value = '';
+  }
+  setTimeout(() => {
+    const radio = label.querySelector('input[type="radio"]');
+    radio.checked = true;
+    label.classList.add('selected');
+    if (otherWrapId) {
+      document.getElementById(otherWrapId).classList.add('visible');
+    }
+    // Clear validation error for this group
+    if (groupId === 'salary-type-group') { clearError('q4'); toggleSalaryTypeFields(radio.value); }
+    if (groupId === 'currency-group') clearError('q6');
+    if (groupId === 'month-group') { clearError('q7'); recomputeAnnualSalary(); }
+    if (groupId === 'entity-group') { clearError('q13'); toggleDadaSgExtraFields(radio.value === 'DADA SG'); }
+    if (groupId === 'payment-group') clearError('q19');
+    if (groupId === 'idtype-group') clearError('q14');
+  }, 0);
+}
+
+// ── Q5–Q8: Basic Salary/Currency/Month/Annual Salary — behave differently
+// depending on Salary Type (Q4) ────────────────────────────────────────────
+function toggleSalaryTypeFields(salaryType) {
+  const isMonthly = salaryType === 'Monthly Salary';
+  const isAnnual  = salaryType === 'Annual Salary';
+  const anySelected = isMonthly || isAnnual;
+
+  // Basic Salary/Month + Month: Monthly Salary branch only
+  ['q5', 'q7'].forEach(id => {
+    document.getElementById(id).style.display = isMonthly ? '' : 'none';
+  });
+  // Currency + Annual Salary: shared by both branches
+  ['q6', 'q8'].forEach(id => {
+    document.getElementById(id).style.display = anySelected ? '' : 'none';
+  });
+
+  const annualInput = document.getElementById('f-annual-salary');
+  const annualHint  = document.getElementById('annual-salary-hint');
+
+  if (isMonthly) {
+    annualInput.readOnly = true;
+    annualInput.placeholder = 'Auto-calculated';
+    annualHint.textContent = 'Auto-calculated: Basic Salary/ Month × Month — not editable.';
+    recomputeAnnualSalary();
+  } else if (isAnnual) {
+    annualInput.readOnly = false;
+    annualInput.placeholder = 'Type here';
+    annualInput.value = '';
+    annualHint.textContent = '';
+  }
+
+  if (!isMonthly) {
+    // Clear Monthly-only fields so hidden data never lingers or gets submitted
+    document.getElementById('f-basic-salary').value = '';
+    document.querySelectorAll('#month-group .option-item').forEach(el => el.classList.remove('selected'));
+    document.querySelectorAll('input[name="month"]').forEach(r => r.checked = false);
+    document.getElementById('month-other-wrap').classList.remove('visible');
+    document.getElementById('f-month-other').value = '';
+    clearError('q5');
+    clearError('q7');
+  }
+
+  if (!anySelected) {
+    document.querySelectorAll('#currency-group .option-item').forEach(el => el.classList.remove('selected'));
+    document.querySelectorAll('input[name="currency"]').forEach(r => r.checked = false);
+    annualInput.value = '';
+    annualInput.readOnly = false;
+    annualHint.textContent = '';
+    clearError('q6');
+    clearError('q8');
+  }
+}
+
+// Returns the numeric "Month" value regardless of whether a preset option
+// (12/13/15) or the "其他（请补充）" free-typed number is selected.
+function getMonthNumericValue() {
+  const monthChecked = document.querySelector('input[name="month"]:checked');
+  if (!monthChecked) return null;
+  const raw = monthChecked.value === 'Other'
+    ? document.getElementById('f-month-other').value
+    : monthChecked.value;
+  if (raw === '' || raw === null || raw === undefined) return null;
+  const n = Number(raw);
+  return isNaN(n) ? null : n;
+}
+
+// Recomputes the read-only Annual Salary field whenever Basic Salary/Month or
+// Month changes, but only while Salary Type = Monthly Salary.
+function recomputeAnnualSalary() {
+  const salaryType = document.querySelector('input[name="salary-type"]:checked')?.value;
+  if (salaryType !== 'Monthly Salary') return;
+
+  const basic = Number(document.getElementById('f-basic-salary').value);
+  const month = getMonthNumericValue();
+  const annualInput = document.getElementById('f-annual-salary');
+
+  if (!isNaN(basic) && basic > 0 && month !== null && month > 0) {
+    const annual = basic * month;
+    annualInput.value = Number.isInteger(annual) ? annual : Math.round(annual * 100) / 100;
+    clearError('q8');
+  } else {
+    annualInput.value = '';
+  }
+}
+
+// ── Q14–Q18: only relevant when entity = "DADA SG" ────────────────────────
+function toggleDadaSgExtraFields(show) {
+  ['q14', 'q15', 'q16', 'q17', 'q18'].forEach(id => {
+    document.getElementById(id).style.display = show ? '' : 'none';
+  });
+  if (!show) {
+    // Clear values + validation state so hidden fields never block submission
+    document.querySelectorAll('#idtype-group .option-item').forEach(el => el.classList.remove('selected'));
+    document.querySelectorAll('input[name="idtype"]').forEach(r => r.checked = false);
+    document.getElementById('f-id-number').value = '';
+    document.getElementById('f-ssoc-code').value = '';
+    document.getElementById('f-company-uen').value = '';
+    document.querySelectorAll('#gst-status-group .option-item').forEach(el => el.classList.remove('selected'));
+    document.querySelectorAll('input[name="gst-status"]').forEach(cb => cb.checked = false);
+    ['q14', 'q15', 'q16', 'q17', 'q18'].forEach(clearError);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// AUTOCOMPLETE — Q1 (client name → UEN) and Q3 (position → SSOC code)
+// ═══════════════════════════════════════════════════════════════
+function debounce(fn, wait) {
+  let t;
+  return (...args) => {
+    clearTimeout(t);
+    t = setTimeout(() => fn(...args), wait);
+  };
+}
+
+function hideSuggestList(listId) {
+  const list = document.getElementById(listId);
+  list.classList.remove('visible');
+  list.innerHTML = '';
+}
+
+function renderSuggestList(listId, items, onPick) {
+  const list = document.getElementById(listId);
+  if (!items.length) {
+    list.innerHTML = '<div class="suggest-empty">No match found — you can type your own value.</div>';
+    list.classList.add('visible');
+    return;
+  }
+  list.innerHTML = '';
+  items.forEach(item => {
+    const row = document.createElement('div');
+    row.className = 'suggest-item';
+    row.innerHTML = `${esc(item.primary)}${item.secondary ? `<div class="suggest-sub">${esc(item.secondary)}</div>` : ''}`;
+    // Use mousedown (fires before the textarea's blur) so the click registers.
+    row.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      onPick(item);
+    });
+    list.appendChild(row);
+  });
+  list.classList.add('visible');
+}
+
+// ── Q1: Name of client to bill → looks up Client UEN List base ───────────
+const onClientNameInput = debounce(async () => {
+  const q = document.getElementById('f-client-name').value.trim();
+  if (q.length < 2) { hideSuggestList('client-suggest-list'); return; }
+  try {
+    const res  = await fetch('/api/search-clients?q=' + encodeURIComponent(q));
+    const data = await res.json();
+    renderSuggestList('client-suggest-list', (data.matches || []).map(m => ({
+      primary: m.name, secondary: m.uen ? 'UEN: ' + m.uen : '', raw: m,
+    })), (item) => {
+      document.getElementById('f-client-name').value = item.raw.name;
+      document.getElementById('f-company-uen').value = item.raw.uen || '';
+      clearError('q1');
+      clearError('q17');
+      hideSuggestList('client-suggest-list');
+    });
+  } catch (e) {
+    console.warn('[search-clients] failed:', e);
+    hideSuggestList('client-suggest-list');
+  }
+}, 300);
+
+// ── Q3: Position of Candidate → looks up SSOC 2024 title/code sheet ──────
+const onPositionInput = debounce(async () => {
+  const q = document.getElementById('f-position').value.trim();
+  if (q.length < 2) { hideSuggestList('position-suggest-list'); return; }
+  try {
+    const res  = await fetch('/api/search-positions?q=' + encodeURIComponent(q));
+    const data = await res.json();
+    renderSuggestList('position-suggest-list', (data.matches || []).map(m => ({
+      primary: m.title, secondary: m.code ? 'SSOC 2024: ' + m.code : '', raw: m,
+    })), (item) => {
+      document.getElementById('f-position').value = item.raw.title;
+      document.getElementById('f-ssoc-code').value = item.raw.code || '';
+      clearError('q3');
+      clearError('q16');
+      hideSuggestList('position-suggest-list');
+    });
+  } catch (e) {
+    console.warn('[search-positions] failed:', e);
+    hideSuggestList('position-suggest-list');
+  }
+}, 300);
+
+// Hide suggestion dropdowns when clicking elsewhere on the page
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('#q1 .suggest-wrap')) hideSuggestList('client-suggest-list');
+  if (!e.target.closest('#q3 .suggest-wrap')) hideSuggestList('position-suggest-list');
+});
+
+// ═══════════════════════════════════════════════════════════════
+// VALIDATION
+// ═══════════════════════════════════════════════════════════════
+function showError(qId) {
+  document.getElementById('err-' + qId).classList.add('visible');
+  const input = document.querySelector('#' + qId + ' textarea, #' + qId + ' input[type="date"], #' + qId + ' input[type="text"], #' + qId + ' input[type="number"]');
+  if (input) input.classList.add('invalid');
+}
+function clearError(qId) {
+  document.getElementById('err-' + qId)?.classList.remove('visible');
+  const input = document.querySelector('#' + qId + ' textarea, #' + qId + ' input[type="date"], #' + qId + ' input[type="text"], #' + qId + ' input[type="number"]');
+  if (input) input.classList.remove('invalid');
+}
+
+// Is the "entity" question currently set to DADA SG? (controls Q14–Q18 visibility/required-ness)
+function isDadaSgSelected() {
+  return document.querySelector('input[name="entity"]:checked')?.value === 'DADA SG';
+}
+
+function validate() {
+  let valid = true;
+  const required = [
+    { id: 'q1',  el: 'f-client-name' },
+    { id: 'q2',  el: 'f-candidate-name' },
+    { id: 'q3',  el: 'f-position' },
+    { id: 'q9',  el: 'f-offer-date' },
+    { id: 'q10', el: 'f-onboarding-date' },
+    { id: 'q11', el: 'f-fee-rate' },
+    { id: 'q21', el: 'f-am-owner' },
+    { id: 'q22', el: 'f-recruiter' },
+    { id: 'q23', el: 'f-sourcer' },
+  ];
+  required.forEach(({ id, el }) => {
+    const val = document.getElementById(el)?.value?.trim();
+    if (!val) { showError(id); valid = false; }
+  });
+
+  // Salary Type (Q4) drives Q5–Q8's visibility and which of them are required
+  const salaryTypeChecked = document.querySelector('input[name="salary-type"]:checked');
+  if (!salaryTypeChecked) {
+    showError('q4'); valid = false;
+  } else {
+    const isMonthly = salaryTypeChecked.value === 'Monthly Salary';
+    if (isMonthly) {
+      if (!document.getElementById('f-basic-salary').value.trim()) { showError('q5'); valid = false; }
+      const monthChecked = document.querySelector('input[name="month"]:checked');
+      if (!monthChecked) {
+        showError('q7'); valid = false;
+      } else if (monthChecked.value === 'Other' && !document.getElementById('f-month-other').value.trim()) {
+        showError('q7'); valid = false;
+      }
+    } else {
+      // Annual Salary branch — user types this one in manually
+      if (!document.getElementById('f-annual-salary').value.trim()) { showError('q8'); valid = false; }
+    }
+    // Currency (Q6) is shared by both branches
+    if (!document.querySelector('input[name="currency"]:checked')) { showError('q6'); valid = false; }
+  }
+
+  if (!document.querySelector('input[name="entity"]:checked')) { showError('q13'); valid = false; }
+  if (!document.querySelector('input[name="payment"]:checked')) { showError('q19'); valid = false; }
+
+  // Q14–Q18 are required only when entity = DADA SG (they're hidden otherwise)
+  if (isDadaSgSelected()) {
+    if (!document.querySelector('input[name="idtype"]:checked')) { showError('q14'); valid = false; }
+    const dadaSgRequired = [
+      { id: 'q15', el: 'f-id-number' },
+      { id: 'q16', el: 'f-ssoc-code' },
+      { id: 'q17', el: 'f-company-uen' },
+    ];
+    dadaSgRequired.forEach(({ id, el }) => {
+      const val = document.getElementById(el)?.value?.trim();
+      if (!val) { showError(id); valid = false; }
+    });
+    if (!document.querySelector('input[name="gst-status"]:checked')) { showError('q18'); valid = false; }
+  }
+
+  return valid;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// FORM SUBMISSION
+// ═══════════════════════════════════════════════════════════════
+document.getElementById('invoice-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (!validate()) {
+    // Scroll to first error
+    const firstErr = document.querySelector('.field-error.visible');
+    if (firstErr) firstErr.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
+
+  const btn = document.getElementById('submit-btn');
+  const msgEl = document.getElementById('form-msg');
+  btn.disabled = true;
+  btn.textContent = 'Submitting…';
+  msgEl.className = 'form-message';
+  msgEl.style.display = 'none';
+
+  // Collect special terms (multiple select)
+  const specialTerms = Array.from(
+    document.querySelectorAll('input[name="special-terms"]:checked')
+  ).map(cb => cb.value);
+
+  const entityVal = document.querySelector('input[name="entity"]:checked')?.value || '';
+  const paymentVal = document.querySelector('input[name="payment"]:checked')?.value || '';
+  const currencyVal = document.querySelector('input[name="currency"]:checked')?.value || '';
+  const salaryTypeVal = document.querySelector('input[name="salary-type"]:checked')?.value || '';
+  const monthNumeric = getMonthNumericValue(); // null unless Salary Type = Monthly Salary and Month is filled in
+
+  // Build fields payload — keys must match Lark Base field names exactly
+  const fields = {
+    'Name of client to bill':
+      document.getElementById('f-client-name').value.trim(),
+    'Name of Candidate':
+      document.getElementById('f-candidate-name').value.trim(),
+    'Position of Candidate':
+      document.getElementById('f-position').value.trim(),
+    'Offer accept date of candidate':
+      document.getElementById('f-offer-date').value,   // YYYY-MM-DD → backend converts
+    'Onboarding date':
+      document.getElementById('f-onboarding-date').value,
+    'Fee rate and calculation':
+      document.getElementById('f-fee-rate').value.trim(),
+    'Who is the AM(client owner) and what is the revenue split percentage?':
+      document.getElementById('f-am-owner').value.trim(),
+    'Who is the Recruiter(consultant owner)and what is the revenue split percentage?':
+      document.getElementById('f-recruiter').value.trim(),
+    'Who is the Sourcer and revenue split percentage?':
+      document.getElementById('f-sourcer').value.trim(),
+    'Which is the entity signed the contract with client?': entityVal,
+    'What is the payment term': paymentVal,
+    'Currency': currencyVal,
+    'Annual Salary': document.getElementById('f-annual-salary').value.trim(),
+  };
+
+  // Basic Salary/Month + Month — only meaningful for the Monthly Salary branch
+  // (Q5/Q7 are cleared automatically when Salary Type = Annual Salary).
+  if (salaryTypeVal === 'Monthly Salary') {
+    fields['Basic Salary/ Month'] = document.getElementById('f-basic-salary').value.trim();
+    if (monthNumeric !== null) fields['Month'] = monthNumeric;
+  }
+
+  // Optional fields
+  if (specialTerms.length) fields['Any special terms'] = specialTerms;
+
+  const specialOther = document.getElementById('f-special-terms-other').value.trim();
+  if (specialOther) fields['Any special terms-Other-Text'] = specialOther;
+
+  const entityOther = document.getElementById('f-entity-other').value.trim();
+  if (entityOther) fields['Which is the entity signed the contract with client?-其他-补充内容'] = entityOther;
+
+  const paymentOther = document.getElementById('f-payment-other').value.trim();
+  if (paymentOther) fields['What is the payment term-Other-Text'] = paymentOther;
+
+  const remarks = document.getElementById('f-remarks').value.trim();
+  if (remarks) fields['Any special terms or additional remarks?'] = remarks;
+
+  // Q13–Q17 — only submitted when entity = DADA SG (fields are hidden/cleared otherwise)
+  if (entityVal === 'DADA SG') {
+    const idTypeVal = document.querySelector('input[name="idtype"]:checked')?.value || '';
+    if (idTypeVal) fields['ID Type'] = idTypeVal;
+
+    const idNumber = document.getElementById('f-id-number').value.trim();
+    if (idNumber) fields['ID Number'] = idNumber;
+
+    const ssocCode = document.getElementById('f-ssoc-code').value.trim();
+    if (ssocCode) fields['SSOC'] = ssocCode;
+
+    const companyUen = document.getElementById('f-company-uen').value.trim();
+    if (companyUen) fields['Client UEN'] = companyUen;
+
+    const gstStatus = Array.from(
+      document.querySelectorAll('input[name="gst-status"]:checked')
+    ).map(cb => cb.value);
+    if (gstStatus.length) fields['GST: Client entity & Candidate status.'] = gstStatus;
+  }
+
+  try {
+    const res = await fetch('/api/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fields,
+        user_access_token: getSession()?.uat || '',
+        open_id: getSession()?.open_id || '',
+      }),
+    });
+    const data = await res.json();
+
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || 'Submission failed. Please try again.');
+    }
+
+    // Success! (Q21/Q22 get filled in later via "候选人已入职？补交证明" once the
+    // candidate has actually onboarded — see showMyRecordsView().)
+    showSuccessScreen({ mode: 'new-submission' });
+  } catch (err) {
+    msgEl.textContent = '⚠ ' + err.message;
+    msgEl.className = 'form-message error';
+    btn.disabled = false;
+    btn.textContent = 'Submit';
+    msgEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════
+// SUCCESS SCREEN — shared by "new invoice request" and "complete onboarding
+// proof" flows, with different copy.
+// ═══════════════════════════════════════════════════════════════
+let _successMode = 'new-submission';
+
+function showSuccessScreen({ mode }) {
+  _successMode = mode;
+  document.getElementById('main-content').style.display = 'none';
+  document.getElementById('success-screen').style.display = 'flex';
+
+  if (mode === 'new-submission') {
+    document.getElementById('success-title').textContent = 'Submitted successfully!';
+    document.getElementById('success-sub').textContent =
+      'Your invoice request has been submitted. The finance team will be notified shortly. ' +
+      '候选人正式入职后，请回到本工具点击右上角「候选人已入职？补交证明」来补交剩余材料。';
+    document.getElementById('success-action-btn').textContent =
+      _isAdmin ? '← Back to Admin Dashboard' : 'Submit another';
+  } else {
+    // 'complete-proof' — the candidate-onboarded follow-up submission
+    document.getElementById('success-title').textContent = 'Onboarding proof submitted!';
+    document.getElementById('success-sub').textContent =
+      'Thanks — the evidence source and proof of onboarding have been added to this invoice request.';
+    document.getElementById('success-action-btn').textContent = 'Done';
+  }
+}
+
+function dismissSuccessScreen() {
+  if (_successMode === 'complete-proof') {
+    // Back to the pending-records list — in case there are more candidates
+    // who onboarded around the same time and still need proof submitted.
+    document.getElementById('success-screen').style.display = 'none';
+    document.getElementById('main-content').style.display = 'block';
+    showMyRecordsView();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } else {
+    resetForm();
+  }
+}
+
+function resetForm() {
+  document.getElementById('invoice-form').reset();
+  document.querySelectorAll('.option-item').forEach(el => el.classList.remove('selected'));
+  document.querySelectorAll('.other-text-wrap').forEach(el => el.classList.remove('visible'));
+  document.querySelectorAll('.field-error').forEach(el => el.classList.remove('visible'));
+  document.querySelectorAll('.invalid').forEach(el => el.classList.remove('invalid'));
+  toggleDadaSgExtraFields(false); // hide + clear Q14–Q18 until entity is re-selected
+  toggleSalaryTypeFields(null);   // hide + clear Q5–Q8 until Salary Type is re-selected
+  hideSuggestList('client-suggest-list');
+  hideSuggestList('position-suggest-list');
+  selectedProofFiles = [];
+  renderProofFileList();
+  document.getElementById('f-onboarding-proof').value = '';
+  document.getElementById('submit-btn').disabled = false;
+  document.getElementById('submit-btn').textContent = 'Submit';
+  document.getElementById('form-msg').style.display = 'none';
+  document.getElementById('success-screen').style.display = 'none';
+  document.getElementById('complete-view').style.display = 'none';
+  document.getElementById('my-records-view').style.display = 'none';
+  document.getElementById('main-content').style.display = 'block';
+
+  if (_isAdmin) {
+    showAdminDashboard();   // admins go back to the dashboard
+  } else {
+    showFormView();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+}
+
+// ─── Start ───────────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
