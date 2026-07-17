@@ -4,5 +4,8 @@
     { "src": "/api/(.*)", "dest": "/api/$1" },
     { "src": "/logo.jpeg", "dest": "/logo.jpeg" },
     { "src": "/(.*)", "dest": "/index.html" }
+  ],
+  "crons": [
+    { "path": "/api/remind-onboarding", "schedule": "0 1 * * *" }
   ]
 }

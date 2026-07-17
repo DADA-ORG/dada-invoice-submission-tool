@@ -19,6 +19,7 @@
    - 如果签约主体选的是 **DADA SG**，会多出几道新加坡本地合规相关的必填题（ID 类型/号码、SSOC 职业编码、UEN、GST 状态）。
    - 提交后数据写入《Client invoice tracker》主表，记录的"提交人"字段会尽量记成本人（用员工自己的 OAuth token 写入；如果失败则用系统身份写入并额外补一个"Respondent"字段兜底）。
 3. **候选人入职后补证明**：员工可以在"候选人已入职？补交证明"入口里看到自己名下还没补齐证明的记录，点开后是**更新**同一条记录（不会新建一条），补上入职证据来源和证明文件（文件先传到 Lark Drive 拿到 file_token，再写入记录的附件字段）。
+3.5 **入职当天自动提醒**：每天早上 9 点（新加坡时间），系统会自动检查"Onboarding date"是当天、且证明还没补齐的记录，给对应的提交人（Respondent）发一条 Lark 私信，提醒回工具补交入职证明。由 Vercel Cron 触发 `api/remind-onboarding.js`。
 4. **管理员视图**：工具会先查《Admin for Invoice Submission》这张子表，判断当前登录的人是不是管理员。是的话，登录后直接看到一个仪表盘，列出过去 7 天内提交的所有记录（谁提交的、客户、候选人、签约主体、付款条款等），方便管理层快速扫一遍最新提交情况，而不用自己去 Lark Base 里翻。
 
 ---
@@ -57,6 +58,7 @@
 | `api/search-clients.js` | Q1 客户名称自动联想 |
 | `api/search-positions.js` | Q3 职位自动联想 |
 | `api/list-fields.js` | 诊断用：列出主表所有字段名和类型，排查字段名不匹配问题时用 |
+| `api/remind-onboarding.js` | 定时任务（Vercel Cron，每天 09:00 SGT）：给当天入职但还没补证明的记录的提交人发 Lark 私信提醒 |
 
 ---
 
@@ -80,6 +82,7 @@
 - **线上地址**：`https://dada-invoice-submission-tool.vercel.app`
 - **部署方式**：⚠️ 没有连接 Git 仓库自动部署，目前是 Gracie 在自己电脑终端里手动跑 `vercel` 命令部署（见 `SETUP GUIDE.md` 里的 "Option B"）。这意味着现在**只有 Gracie 的电脑能重新部署**，一旦她离职且电脑收回，改了代码也发布不出去，除非按上面"源代码"那一条先建好 GitHub 仓库并把 Vercel 连上 Git 自动部署。
 - **环境变量**（存在 Vercel 项目设置里，跟着项目走，不需要重新填）：`LARK_APP_ID`、`LARK_APP_SECRET`、`LARK_BASE_APP_TOKEN`、`LARK_BASE_TABLE_ID`（`search-clients` / `search-positions` 用到的参考表 token 如未单独设置，代码里有默认值兜底）。
+- **定时任务（Cron）**：`api/remind-onboarding.js` 由 Vercel Cron 每天 UTC 01:00（= 新加坡时间 09:00）自动调用，无需手动触发。⚠️ 需要在 Vercel 项目环境变量里新增 `CRON_SECRET`（任意一串随机字符串即可），否则这个提醒接口的 URL 一旦被外部知道就能被任何人触发；设置后 Vercel Cron 会自动带上正确的鉴权头，无需额外配置。也可以选填 `TOOL_URL`（提醒短信里附的工具链接，不填则默认用线上地址）。
 
 ---
 

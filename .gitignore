@@ -1,1 +1,3 @@
 .vercel
+.env*
+ENV_VALUES_CONFIDENTIAL_*.md
