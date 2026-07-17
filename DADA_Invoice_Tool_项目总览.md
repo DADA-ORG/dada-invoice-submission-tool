@@ -57,8 +57,9 @@
 | `api/upload-attachment.js` | 上传入职证明文件到 Lark Drive |
 | `api/search-clients.js` | Q1 客户名称自动联想 |
 | `api/search-positions.js` | Q3 职位自动联想 |
-| `api/list-fields.js` | 诊断用：列出主表所有字段名和类型，排查字段名不匹配问题时用 |
 | `api/remind-onboarding.js` | 定时任务（Vercel Cron，每天 09:00 SGT）：给当天入职但还没补证明的记录的提交人发 Lark 私信提醒 |
+
+⚠️ **Vercel Hobby 计划上限是 12 个 Serverless Functions。** 为了腾出加 `remind-onboarding.js` 的名额，已删除原来的诊断用接口 `api/list-fields.js`（列出主表所有字段名和类型）。以后如果要排查字段名不匹配问题，可以临时把它加回来本地跑一下，改完记得删掉或换成升级 Vercel Pro 计划。
 
 ---
 
